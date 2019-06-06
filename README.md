@@ -12,8 +12,8 @@ We'll start from a new Xcode project, add categories such as `API` and `Auth` us
 - [Deleting the resources](https://github.com/wizage/aws-appsync-ios-workshop/tree/SwiftUI#removing-categories-from-amplify-project)
 
 
-#### Old swift
-- [(Alpha) Using SwiftUI](https://github.com/wizage/aws-appsync-ios-workshop)
+#### Old fashion Swift
+- [Using old fashion Swift](https://github.com/wizage/aws-appsync-ios-workshop)
 
 ## Getting Started - Create an Xcode project
 
