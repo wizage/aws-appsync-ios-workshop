@@ -9,7 +9,7 @@ We'll start from a new Xcode project, add categories such as `API` and `Auth` us
 ### Topics we'll be covering:
 
 - [GraphQL API with AWS AppSync](https://github.com/wizage/aws-appsync-ios-workshop#getting-started---create-an-xcode-project)
-- [Deleting the resources](https://github.com/wizage/aws-appsync-ios-workshop#removing-services)
+- [Deleting the resources](https://github.com/wizage/aws-appsync-ios-workshop#removing-categories-from-amplify-project)
 
 - [(Alpha) Using SwiftUI](https://github.com/wizage/aws-appsync-ios-workshop/tree/SwiftUI)
 
