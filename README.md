@@ -382,7 +382,7 @@ struct ContentView : View {
 Now that the cell has been defined, the next step is defining the list. First it is important to bring in the store needed to populate the `Table`. In your `ContentView` add in a `@State var` for the store. Something like this:
 ```swift
 struct ContentView : View {
-    @State var talkStore = TalkStore()
+    @EnvironmentObject var talkStore : TalkStore
 
     ...
 
@@ -402,13 +402,28 @@ struct ContentView_Previews : PreviewProvider {
             ListTalksQuery.Data.ListTalk.Item(id: "1", name: "WWDC Recap", description: "", speakerName: "Tim Apple", speakerBio: ""),
             ListTalksQuery.Data.ListTalk.Item(id: "2", name: "Bash Party", description: "", speakerName: "Weezer", speakerBio: "")
         ]
-        return ContentView(talkStore: TalkStore(talks: sampleData))
+        return ContentView()
+        .environmentObject(TalkStore(talks: sampleData))
     }
 }
 #endif
 ```
 
-Now that the Canvas and App have data available, `List`can now be added to our ContentView.
+Now that the Canvas has data available, the same needs to happen with the App.
+
+Navigate to `SceneDelgate.swift` and find this line:
+```swift
+window.rootViewController = UIHostingController(rootView: ContentView())
+```
+
+`ContentView` will need an `environmentObject` to be able to function correctly.
+
+To add an `enviromentOjbect` to `ContentView` replace this line with this.
+
+```swift
+window.rootViewController = UIHostingController(rootView: ContentView().environmentObject(TalkStore()))
+```
+
 
 To do this, we can simply wrap the `VStack` (or whatever root view is choosen) with a `List(talkStore.listTalks)`. It will look something like this:
 
