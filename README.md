@@ -8,16 +8,16 @@ We'll start from a new Xcode project, add categories such as `API` and `Auth` us
 
 ### Topics we'll be covering:
 
-- [GraphQL API with AWS AppSync](https://github.com/wizage/aws-appsync-ios-workshop#getting-started---create-an-xcode-project)
-- [Deleting the resources](https://github.com/wizage/aws-appsync-ios-workshop#removing-categories-from-amplify-project)
+- [GraphQL API with AWS AppSync](https://github.com/wizage/aws-appsync-ios-workshop/tree/SwiftUI#getting-started---create-an-xcode-project)
+- [Deleting the resources](https://github.com/wizage/aws-appsync-ios-workshop/tree/SwiftUI#removing-categories-from-amplify-project)
 
 
-#### SwiftUI for the brave
-- [(Alpha) Using SwiftUI](https://github.com/wizage/aws-appsync-ios-workshop/tree/SwiftUI)
+#### Old swift
+- [(Alpha) Using SwiftUI](https://github.com/wizage/aws-appsync-ios-workshop)
 
 ## Getting Started - Create an Xcode project
 
-To get started, create a new Xcode project for iOS Swift & save as: `ios-amplify-app`
+To get started, create a new Xcode project for iOS SwiftUI & save as: `ios-amplify-app`
 
 From a Mac Terminal, change into the new app directory & prepare to install and congigure the Amplify CLI.
 
@@ -220,152 +220,280 @@ In Xcode, right-click on the project folder and choose `"Add Files to ..."` and 
 
 Build the project (Command-B) to make sure we don't have any compile errors.
 
-## Initialize the AppSync iOS Client
-#### Update ViewController.swift
-Add the folowing four numbered code snippets to your `ViewController.swift` class:
+## Initialize the AppSync Store
 
+### Create a user store (Query AppSync)
+This talk store will contain the list of Talks so that SwiftUI can draw each cell.
+
+Create a new blank swift file called `TalkStore.swift` and write in the code to generate a store of the current list of talks available from our api.
 ```swift
-import AWSAppSync // #1
+import Combine
+import SwiftUI
+import AWSAppSync
 
-class ViewController: UIViewController {
-    
-    // Reference AppSync client
-    var appSyncClient: AWSAppSyncClient? // #2
-    
-    //...
-    
-    override func viewDidLoad() {
-        super.viewDidLoad()
+final class TalkStore: BindableObject {
+    /*
+     Required by SwiftUI
+     */
+    let didChange = PassthroughSubject<[ListTalksQuery.Data.ListTalk.Item], Never>()
+    private let appSyncClient: AWSAppSyncClient!
+    var listTalks: [ListTalksQuery.Data.ListTalk.Item] {
+        didSet {
+            didChange.send(self.listTalks)
+        }
         
-        //...
-
-        initializeAppSync() // #3
-        
-        //...
     }
-
-    // #4
-    // Use this code when setting up AppSync with API_key auth mode. This mode is used for testing our GraphQL mutations, queries, and subscriptions with an API key.
-    func initializeAppSync() {
+    
+    /*
+     Init if running app is not in debug mode
+     */
+    init(){
+        self.listTalks = []
         do {
-        // Initialize the AWS AppSync configuration
-        let appSyncConfig = try AWSAppSyncClientConfiguration(appSyncServiceConfig: AWSAppSyncServiceConfig(),
-        cacheConfiguration: AWSAppSyncCacheConfiguration())
-        
-        // Initialize the AWS AppSync client
-        appSyncClient = try AWSAppSyncClient(appSyncConfig: appSyncConfig)
-        } catch {
-        print("Error initializing appsync client. \(error)")
-        }
-    }
-    // End #4
-}
-```
-
-## Add GraphQL Mutation
-
-Add the following mutation function to your `ViewController.swift` class:
-
-```swift
-// GraphQL Mutation - Add a new talk
-func createTalkMutation(){
-    let conferenceInput = CreateTalkInput(name: "Monetize your iOS app", description: "How to make dough as an iOS developer", speakerName: "Steve Jobs", speakerBio: "I do cool stuff at Apple")
-    appSyncClient?.perform(mutation: CreateTalkMutation(input: conferenceInput))
-    { (result, error) in
-        if let error = error as? AWSAppSyncClientError {
-            print("Error occurred: \(error.localizedDescription )")
-        }
-        if let resultError = result?.errors {
-            print("Error saving conf talk: \(resultError)")
-            return
-        }
-        
-        guard let result = result?.data else { return }
-        
-        print("Talk created: \(String(describing: result.createTalk?.id))")
-    }
-}
-```
-
-## Add GraphQL Query
-
-Add the following query function to your `ViewController.swift` class:
-
-```swift
-// GraphQL Query - List all talks
-func getTalksQuery(){
-    appSyncClient?.fetch(query: ListTalksQuery(), cachePolicy: .returnCacheDataAndFetch) { (result, error) in
-        if error != nil {
-            print(error?.localizedDescription ?? "")
-            return
-        }
-        
-        guard let talks = result?.data?.listTalks?.items else { return }
-        talks.forEach{ print(("Title: " + ($0?.name)!) + "\nSpeaker: " + (($0?.speakerName)! + "\n")) }
-    }
-}
-```
-
-### Run App and Invoke Mutation and Query Functions
-
-In order to execute the mutation and/or query functions above, we can invoke those functions from `ViewDidLoad()` in the `ViewController.swift` class:
-```swift
-override func viewDidLoad() {
-    super.viewDidLoad()
-    
-    //...
-
-    createTalkMutation()
-    getTalksQuery()
-
-    //...
-}
-```
-Build (Command-B) and run your app.
-
-### Add GraphQL Subscriptions
-
-GraphQL subscriptions give us the real-time updates when data changes in our API. 
-First, set the discard variable at the `ViewController.swift` class level:
-
-```swift
-// Set a discard variable at the class level
-var discard: Cancellable?
-```
-
-Now add this new `subscribeToTalks()` function to your `ViewController.swift` class: 
-
-```swift
-func subscribeToTalks() {
-    do {
-        discard = try appSyncClient?.subscribe(subscription: OnCreateTalkSubscription(), resultHandler: { (result, transaction, error) in
-            if let result = result {
-                print("Subscription triggered! " + result.data!.onCreateTalk!.name + " " + result.data!.onCreateTalk!.speakerName)
-            } else if let error = error {
-                print(error.localizedDescription)
+            let appSyncConfig = try AWSAppSyncClientConfiguration(appSyncServiceConfig: AWSAppSyncServiceConfig(),cacheConfiguration: AWSAppSyncCacheConfiguration())
+            
+            appSyncClient = try AWSAppSyncClient(appSyncConfig: appSyncConfig)
+            
+            // Initialize the AWS AppSync client
+            appSyncClient.fetch(query: ListTalksQuery(), cachePolicy: .returnCacheDataAndFetch) { (result, error) in
+                if (error != nil){
+                    print(error?.localizedDescription ?? "")
+                    return
+                } else {
+                    guard let talks = result?.data?.listTalks?.items else { return }
+                    self.listTalks = talks as! [ListTalksQuery.Data.ListTalk.Item]
+                }
             }
-        })
-    } catch {
-        print("Error starting subscription.")
+            
+        } catch {
+            print("Error initializing AppSync client. \(error)")
+            appSyncClient = nil
+        }
+    }
+    /*
+     Init if running app is using SwiftUI Content View
+     */
+    init(talks: [ListTalksQuery.Data.ListTalk.Item]){
+        self.appSyncClient = nil
+        self.listTalks = talks
     }
 }
 ```
 
-Finally, call the `subscribeToTalks()` from `ViewDidLoad()` in your `ViewController.swift` class:
+#### So lets break down what is in this code. 
+
+1. The intial code is all needed by SwiftUI's new code to know when context switches. This is discussed more in depth later with inserts and deletes. 
+1. The next step is initializing this Store. To do this first connect the AppSync Client must be connected. This can be done at the App Delegate level as well if the app have multiple data stores that use the AppSync Client. For this walkthrough it will stay here.
+1. After the AppSync Client is initlized, the function makes a list query to populate the list for the store.
+1. The last init is meant for testing the app using the new SwiftUI Canvas (more on this later)
+
+### Set up generated code to work with SwiftUI
+
+Open up the API.swift file.
+
+First add a new import `import SwiftUI`. So it should now have:
 
 ```swift
-override func viewDidLoad() {
-    super.viewDidLoad()
-    
-    // ...
-    
-    // invoke to subscribe to newly created talks
-    subscribeToTalks()
+//  This file was automatically generated and should not be edited.
+
+import AWSAppSync
+import SwiftUI
+```
+
+Next navigate to `public final class ListTalksQuery: GraphQLQuery`
+
+Inside the `public final class ListTalksQuery: GraphQLQuery` navigate to `Data.ListTalk.Item` in the class to find the `Item` struct. This struct should look something like this:
+```swift
+public struct Item: GraphQLSelectionSet {
+    public static let possibleTypes = ["Talk"]
+
+    public static let selections: [GraphQLSelection] = [...]
+
+    public var snapshot: Snapshot
+
+    public init(snapshot: Snapshot) {
+        self.snapshot = snapshot
+    }
+
+    public init(id: GraphQLID, clientId: GraphQLID? = nil, name: String, description: String, speakerName: String, speakerBio: String) {
+        ...
+    }
+
+    public var __typename: String {
+        ...
+    }
+
+    public var id: GraphQLID {
+        ...
+    }
+
+    public var clientId: GraphQLID? {
+        ...
+    }
+
+    public var name: String {
+        ...
+    }
+
+    public var description: String {
+        ../.
+    }
+
+    public var speakerName: String {
+       ...
+    }
+
+    public var speakerBio: String {
+        ...
+    }
 }
 ```
-> Don't forget to comment out the calls to createTalkMutation() getTalksQuery() in the ViewDidLoad() or the app will create a new talk each time it loads.
 
-Run the mobile app and it'll then subscribe to any new talk creation. To test the real-time subscription: Leave the app running and then create a new talk via the AppSync Console through a Mutation and you should see the iOS app log the new talk via a subscription!
+The change to make `API.swift` work with SwiftUI is to simply add `Identifiable` to the inheritance of the struct like so:
+
+```swift
+public struct Item: GraphQLSelectionSet, Identifiable {
+    ...
+}
+
+```
+This change will need add an inheritance to the `Item` struct to allow SwiftUI to mark the `id` as a hashable. This will allow SwiftUI to generate the lists. More can be read about this in the beta docs.
+
+### Creating the first content view controller
+Navigate to `ContentView.swift` in the project
+
+Click resume on the top of the Canvas on the right to make sure the project is not seeing any errors before diving in.
+
+First lets add some fields that should show in the list view by using the default view. This can be formatted anyway but should contain a place for the `name` and the `speakerName` to a cell. Here is an example:
+
+```swift
+struct ContentView : View {
+    var body: some View {
+        VStack(alignment: .leading) {
+            Text("name")
+                .font(.title)
+            Text("speakerName")
+                .font(.subheadline)
+        }
+    }
+}
+```
+
+Now that the cell has been defined, the next step is defining the list. First it is important to bring in the store needed to populate the `Table`. In your `ContentView` add in a `@State var` for the store. Something like this:
+```swift
+struct ContentView : View {
+    @State var talkStore = TalkStore()
+
+    ...
+
+}
+```
+
+What this does is it will initialize the store when the view is displayed using the init defined. This is perfect for production but now the canvas will fail to display info if you try to use the store added. To fix this the test cases for the enviroment will need to be updated.
+
+Navigate down the the `struct ContentView_Previews` and add in some test data and pass it in using the second init created previously. This could look something like this:
+
+```swift
+#if DEBUG
+struct ContentView_Previews : PreviewProvider {
+    static var previews: some View {
+        let sampleData = [
+            ListTalksQuery.Data.ListTalk.Item(id: "0", name: "SwiftUI and Amplify", description: "", speakerName: "Sam Patzer", speakerBio: ""),
+            ListTalksQuery.Data.ListTalk.Item(id: "1", name: "WWDC Recap", description: "", speakerName: "Tim Apple", speakerBio: ""),
+            ListTalksQuery.Data.ListTalk.Item(id: "2", name: "Bash Party", description: "", speakerName: "Weezer", speakerBio: "")
+        ]
+        return ContentView(talkStore: TalkStore(talks: sampleData))
+    }
+}
+#endif
+```
+
+Now that the Canvas and App have data available, `List`can now be added to our ContentView.
+
+To do this, we can simply wrap the `VStack` (or whatever root view is choosen) with a `List(talkStore.listTalks)`. It will look something like this:
+
+```swift
+
+var body: some View {
+    List(talkStore.listTalks){ talk in
+        VStack(alignment: .leading) {
+            ... 
+        }
+    }
+}
+
+```
+
+To get data from the array, the `Text` views will need to update to:
+```swift
+Text("\(talk.name)")
+    .font(.title)
+Text("\(talk.speakerName)")
+    .font(.subheadline)
+```
+
+Now the app has successfuly integrated with iOS's new SwiftUI for getting a list.
+
+### Add GraphQL Mutation
+
+To get started, adding new items to AppSync, there is a few more SwiftUI elements need. Still in the `ContentView.swift`, the first thing to do is to wrap the `List` view in a `NavigationView` so that a navigation bar item could be added. That navigation bar item will be a button that would add a new object to the list.
+
+This will look something like this:
+```swift
+@State var talkStore = TalkStore()
+var body: some View {
+    NavigationView {
+        List(talkStore.listTalks){ talk in
+            ...
+        }
+        .navigationBarTitle(Text("Talks"))
+        .navigationBarItems(trailing: Button(action: {
+            self.talkStore.add()
+        }, label: {
+            Image(systemName: "plus")
+        }))
+    }
+}
+```
+
+Somethings, that were added in this code are a new title called Talks and a plus button. This is provided by the `.navigationBarTitle` property and a new trailing navigation bar button provided by `.navigationBarItems`. The plus button's action calls a new function in our datastore. This function will be preforming a mutation and then updating the `listTalks` array.
+
+Navigate to the `TalkStore.swift` file and add in the new `add` function and the `mapAdd` helper function.
+
+```swift
+func add(){
+    if (appSyncClient != nil){
+        let conferenceInput = CreateTalkInput(name: "Monetize your iOS app", description: "How to make dough as an iOS developer", speakerName: "Steve Jobs", speakerBio: "I do cool stuff at Apple")
+        appSyncClient?.perform(mutation: CreateTalkMutation(input: conferenceInput))
+        { (result, error) in
+            if let error = error as? AWSAppSyncClientError {
+                print("Error occurred: \(error.localizedDescription )")
+            }
+            if let resultError = result?.errors {
+                print("Error saving conf talk: \(resultError)")
+                return
+            }
+            
+            guard let result = result?.data else { return }
+            self.listTalks.append(self.mapAdd(neededConversion: result.createTalk!))
+            print("Talk created: \(String(describing: result.createTalk?.id))")
+        }
+    } else {
+        let newItem = CreateTalkMutation.Data.CreateTalk(id: "100", name: "Monetize your iOS app", description: "How to make dough as an iOS developer", speakerName: "Steve Jobs", speakerBio: "I do cool stuff at Apple")
+        listTalks.append(mapAdd(neededConversion: newItem))
+    }
+}
+
+private func mapAdd(neededConversion:
+    CreateTalkMutation.Data.CreateTalk) -> ListTalksQuery.Data.ListTalk.Item{
+    let newItem = ListTalksQuery.Data.ListTalk.Item(id: neededConversion.id, clientId: neededConversion.clientId, name: neededConversion.name, description: neededConversion.description, speakerName: neededConversion.speakerName, speakerBio: neededConversion.speakerBio)
+    return newItem
+}
+```
+
+The `add()` function performs a mutation to the GraphQL client and then stores the new item (if successful) in the `listTalks` array. The result comes back in a different struct then what the array is defined as so we create a helper function to map the create to the list struct. If the client doesn't exist (only case is if the canvas is present), then it will default to adding straight to the array on every click making it easy to keep the canvas fully functional.
+
+Diving more into what is going on and how the animations work. From the documentation as long as the array `listTalks` is modified then eventually the animation will happen. This is controlled by `didSet` on the `listTalks` variable. In `didSet` or `willSet` additional logic can live to run functions after before or after the array has been set. 
 
 
 ## Removing Categories from Amplify Project
