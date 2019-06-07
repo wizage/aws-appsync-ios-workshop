@@ -287,78 +287,6 @@ final class TalkStore: BindableObject {
 1. After the AppSync Client is initlized, the function makes a list query to populate the list for the store.
 1. The last init is meant for testing the app using the new SwiftUI Canvas (more on this later)
 
-### Set up generated code to work with SwiftUI
-
-Open up the API.swift file.
-
-First add a new import `import SwiftUI`. So it should now have:
-
-```swift
-//  This file was automatically generated and should not be edited.
-
-import AWSAppSync
-import SwiftUI
-```
-
-Next navigate to `public final class ListTalksQuery: GraphQLQuery`
-
-Inside the `public final class ListTalksQuery: GraphQLQuery` navigate to `Data.ListTalk.Item` in the class to find the `Item` struct. This struct should look something like this:
-```swift
-public struct Item: GraphQLSelectionSet {
-    public static let possibleTypes = ["Talk"]
-
-    public static let selections: [GraphQLSelection] = [...]
-
-    public var snapshot: Snapshot
-
-    public init(snapshot: Snapshot) {
-        self.snapshot = snapshot
-    }
-
-    public init(id: GraphQLID, clientId: GraphQLID? = nil, name: String, description: String, speakerName: String, speakerBio: String) {
-        ...
-    }
-
-    public var __typename: String {
-        ...
-    }
-
-    public var id: GraphQLID {
-        ...
-    }
-
-    public var clientId: GraphQLID? {
-        ...
-    }
-
-    public var name: String {
-        ...
-    }
-
-    public var description: String {
-        ../.
-    }
-
-    public var speakerName: String {
-       ...
-    }
-
-    public var speakerBio: String {
-        ...
-    }
-}
-```
-
-The change to make `API.swift` work with SwiftUI is to simply add `Identifiable` to the inheritance of the struct like so:
-
-```swift
-public struct Item: GraphQLSelectionSet, Identifiable {
-    ...
-}
-
-```
-This change will need add an inheritance to the `Item` struct to allow SwiftUI to mark the `id` as a hashable. This will allow SwiftUI to generate the lists. More can be read about this in the beta docs.
-
 ### Creating the first content view controller
 Navigate to `ContentView.swift` in the project
 
@@ -425,12 +353,12 @@ window.rootViewController = UIHostingController(rootView: ContentView().environm
 ```
 
 
-To do this, we can simply wrap the `VStack` (or whatever root view is choosen) with a `List(talkStore.listTalks)`. It will look something like this:
+To do this, we can simply wrap the `VStack` (or whatever root view is choosen) with a `List(talkStore.listTalks.identified(by:\.id))`. It will look something like this:
 
 ```swift
 
 var body: some View {
-    List(talkStore.listTalks){ talk in
+    List(talkStore.listTalks.identified(by:\.id)){ talk in
         VStack(alignment: .leading) {
             ... 
         }
